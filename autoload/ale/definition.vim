@@ -20,6 +20,16 @@ function! ale#definition#ClearLSPData() abort
     let s:go_to_definition_map = {}
 endfunction
 
+function! ale#definition#OpenDefinition(filename, line, column, options) abort
+    let l:Callback = get(a:options, 'callback', v:null)
+
+    if l:Callback is v:null
+        call ale#util#Open(a:filename, a:line, a:column, a:options)
+    else
+        call l:Callback(a:filename, a:line, a:column, a:options)
+    endif
+endfunction
+
 function! ale#definition#UpdateTagStack() abort
     let l:should_update_tagstack = exists('*gettagstack') && exists('*settagstack') && g:ale_update_tagstack
 
@@ -45,7 +55,7 @@ function! ale#definition#HandleTSServerResponse(conn_id, response) abort
             let l:column = a:response.body[0].start.offset
 
             call ale#definition#UpdateTagStack()
-            call ale#util#Open(l:filename, l:line, l:column, l:options)
+            call ale#definition#OpenDefinition(l:filename, l:line, l:column, l:options)
         endif
     endif
 endfunction
@@ -70,7 +80,7 @@ function! ale#definition#HandleLSPResponse(conn_id, response) abort
             let l:column = l:item.range.start.character + 1
 
             call ale#definition#UpdateTagStack()
-            call ale#util#Open(l:filename, l:line, l:column, l:options)
+            call ale#definition#OpenDefinition(l:filename, l:line, l:column, l:options)
             break
         endfor
     endif
@@ -118,6 +128,7 @@ function! s:OnReady(line, column, options, capability, linter, lsp_details) abor
 
     let s:go_to_definition_map[l:request_id] = {
     \   'open_in': get(a:options, 'open_in', 'current-buffer'),
+    \   'callback': get(a:options, 'callback', v:null),
     \}
 endfunction
 
