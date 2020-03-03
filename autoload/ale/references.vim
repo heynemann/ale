@@ -14,6 +14,20 @@ function! ale#references#ClearLSPData() abort
     let s:references_map = {}
 endfunction
 
+function! ale#references#ShowItemList(item_list, options) abort
+    let l:Callback = get(a:options, 'callback', v:null)
+
+    if l:Callback is v:null
+        if empty(a:item_list)
+            call ale#util#Execute('echom ''No references found.''')
+        else
+            call ale#preview#ShowSelection(a:item_list, a:options)
+        endif
+    else
+        call l:Callback(a:item_list, a:options)
+    endif
+endfunction
+
 function! ale#references#HandleTSServerResponse(conn_id, response) abort
     if get(a:response, 'command', '') is# 'references'
     \&& has_key(s:references_map, a:response.request_seq)
@@ -31,11 +45,7 @@ function! ale#references#HandleTSServerResponse(conn_id, response) abort
                 \})
             endfor
 
-            if empty(l:item_list)
-                call ale#util#Execute('echom ''No references found.''')
-            else
-                call ale#preview#ShowSelection(l:item_list, l:options)
-            endif
+            call ale#references#ShowItemList(l:item_list, l:options)
         endif
     endif
 endfunction
@@ -59,11 +69,7 @@ function! ale#references#HandleLSPResponse(conn_id, response) abort
             endfor
         endif
 
-        if empty(l:item_list)
-            call ale#util#Execute('echom ''No references found.''')
-        else
-            call ale#preview#ShowSelection(l:item_list, l:options)
-        endif
+        call ale#references#ShowItemList(l:item_list, l:options)
     endif
 endfunction
 
@@ -99,7 +105,8 @@ function! s:OnReady(line, column, options, linter, lsp_details) abort
     let l:request_id = ale#lsp#Send(l:id, l:message)
 
     let s:references_map[l:request_id] = {
-    \ 'use_relative_paths': has_key(a:options, 'use_relative_paths') ? a:options.use_relative_paths : 0
+    \ 'use_relative_paths': has_key(a:options, 'use_relative_paths') ? a:options.use_relative_paths : 0,
+    \ 'callback': has_key(a:options, 'callback') ? a:options.callback : v:null
     \}
 endfunction
 
@@ -107,9 +114,13 @@ function! ale#references#Find(...) abort
     let l:options = {}
 
     if len(a:000) > 0
-        for l:option in a:000
-            if l:option is? '-relative'
+        for l:Option in a:000
+            if l:Option is? '-relative'
                 let l:options.use_relative_paths = 1
+            endif
+
+            if type(l:Option) is v:t_func
+                let l:options.callback = l:Option
             endif
         endfor
     endif
